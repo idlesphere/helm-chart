@@ -1,0 +1,9 @@
+apiVersion: v1
+description: update dockerconfigjson
+keywords:
+- dockerconfigjson
+name: dockerconfigjson
+version: 1.0.0
+maintainers:
+- name: GenchSusu
+  email: mingde.zhu@iherb.com

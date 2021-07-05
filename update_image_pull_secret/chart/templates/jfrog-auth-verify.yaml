@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Release.Name }}-jfrog-verify"
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+spec:
+  ttlSecondsAfterFinished: 0
+  template:
+    metadata:
+      name: "{{ .Release.Name }}-jfrog-verify"
+      labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+        helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    spec:
+      containers:
+      - image: docker.io/busybox:uclibc
+        imagePullPolicy: Always
+        name: public-image
+      - image: iherb-docker-local.jfrog.io/jfrog-test:1.0
+        imagePullPolicy: Always
+        name: docker-local-image
+      - image: iherb-docker.jfrog.io/jfrog-test:1.0
+        imagePullPolicy: Always
+        name: docker-iherb-image
+      imagePullSecrets:
+      - name: {{ $.Values.secretname }}
+      restartPolicy: Never
+      

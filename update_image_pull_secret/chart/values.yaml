@@ -1,0 +1,27 @@
+# Default values for dockerconfigjson.
+
+secretname: "regcred"
+
+# Ignored Namespace
+ignore:
+  - default
+  - kube-public
+  - kube-system
+
+imageCredentials:
+  # Registry 1
+  - registry: https://harbor.sample.com
+    username: "changeme"
+    password: "changeme"
+  # Registry 2
+  - registry: https://harbor-proxy.sample.com
+    username: "changeme"
+    password: "changeme"
+  # Registry 3
+  - registry: https://harbor-test.sample.com
+    username: "changeme"
+    password: "changeme"
+  # Dockerhub
+  - registry: https://index.docker.io/v1/
+    username: "changeme"
+    password: "changeme"
