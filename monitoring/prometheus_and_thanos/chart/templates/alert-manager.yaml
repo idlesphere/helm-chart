@@ -1,0 +1,12 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: alertmanager-config
+  labels:
+    chart: {{ .Chart.Name }}
+    version: {{ .Chart.Version }}
+    release: {{ .Release.Name }}
+type: Opaque
+data:
+  additional-alertmanager-configs.yaml:  {{ tpl (.Files.Get "config/alertmanager.yaml") . | b64enc }}

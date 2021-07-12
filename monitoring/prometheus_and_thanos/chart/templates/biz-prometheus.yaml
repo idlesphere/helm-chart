@@ -1,0 +1,120 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: biz-prometheus
+  labels:
+    app: biz-prometheus
+    chart: {{ .Chart.Name }}
+    version: {{ .Chart.Version }}
+    release: {{ .Release.Name }}
+spec:
+  baseImage: quay.io/prometheus/prometheus
+  version: {{ .Values.prometheus.version | quote }}
+  enableAdminAPI: false
+  externalLabels:
+    datacenter: {{ .Values.datacenter }}
+    prometheus: biz-prometheus
+  additionalAlertManagerConfigs:
+    key: additional-alertmanager-configs.yaml
+    name: alertmanager-config
+  podMetadata:
+    annotations:
+      sidecar.istio.io/inject: "false"
+  listenLocal: false
+  logFormat: logfmt
+  logLevel: warn
+  paused: false
+  replicas: 1
+  resources:
+    limits:
+      cpu: {{ .Values.prometheus.biz.resources.limits.cpu | quote }}
+      memory: {{ .Values.prometheus.biz.resources.limits.memory }}
+    requests:
+      cpu: {{ .Values.prometheus.biz.resources.requests.cpu | quote }}
+      memory: {{ .Values.prometheus.biz.resources.requests.memory }}
+  retention: 2h
+  routePrefix: /
+  ruleNamespaceSelector: {}
+  ruleSelector:
+    matchExpressions:
+    - key: release
+      operator: In
+      values:
+      - monitoring
+  podMonitorSelector:
+    matchExpressions:
+    - key: release
+      operator: In
+      values:
+      - monitoring
+  securityContext:
+    fsGroup: 2000
+    runAsNonRoot: true
+    runAsUser: 1000
+  portName: http-prom
+  serviceAccountName: prometheus
+  serviceMonitorNamespaceSelector: {}
+  serviceMonitorSelector:
+    matchExpressions:
+    - key: release
+      operator: In
+      values:
+      - monitoring
+  storage:
+    volumeClaimTemplate:
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.prometheus.biz.storageSize }}
+  thanos:
+    image: "{{ .Values.thanos.image.repository }}:{{ .Values.thanos.image.tag }}"
+    objectStorageConfig:
+      key: "{{ .Values.thanos.objstoreFile }}"
+      name: "{{ .Values.thanos.objstoreSecretOverride }}"
+    resources:
+      limits:
+        cpu: {{ .Values.prometheus.biz.thanos.resources.limits.cpu | quote }}
+        memory: {{ .Values.prometheus.biz.thanos.resources.limits.memory }}
+      requests:
+        cpu: {{ .Values.prometheus.biz.thanos.resources.requests.cpu | quote }}
+        memory: {{ .Values.prometheus.biz.thanos.resources.requests.memory }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: biz-prometheus-thanos
+  labels:
+    chart: {{ .Chart.Name }}
+    version: {{ .Chart.Version }}
+    release: {{ .Release.Name }}
+spec:
+  ports:
+  - name: grpc-thanos
+    port: 10901
+    protocol: TCP
+    targetPort: 10901
+  selector:
+    prometheus: biz-prometheus
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: biz-prometheus
+  labels:
+    app: biz-prometheus
+    chart: {{ .Chart.Name }}
+    version: {{ .Chart.Version }}
+    release: {{ .Release.Name }}
+spec:
+  ports:
+  - name: http-prom
+    port: 9090
+    protocol: TCP
+    targetPort: 9090
+  selector:
+    prometheus: biz-prometheus

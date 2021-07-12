@@ -1,0 +1,68 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: infra-prometheus-kubelet
+  labels:
+    prometheus: infra-prometheus
+    chart: {{ .Chart.Name }}
+    version: {{ .Chart.Version }}
+    release: {{ .Release.Name }}
+spec:
+  endpoints:
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    honorLabels: true
+    interval: 60s
+    metricRelabelings:
+      - action: drop
+        regex: container_(tasks_state|memory_failures_total|network_transmit_errors_total|network_receive_bytes_total)
+        replacement: $1
+        separator: ;
+        sourceLabels:
+        - __name__
+      - sourceLabels: 
+          - container_name
+        targetLabel: container
+      - sourceLabels: 
+          - pod_name
+        targetLabel: pod
+      - action: drop
+        regex: (.*);
+        replacement: $1
+        separator: ;
+        sourceLabels:
+        - id
+        - resource_version
+        - secret
+        - mountpoint
+        - name
+        - container_name
+        - pod_name
+    port: https-metrics
+    scheme: https
+    tlsConfig:
+      caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      insecureSkipVerify: true
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    honorLabels: true
+    interval: 15s
+    path: /metrics/cadvisor
+    port: https-metrics
+    scheme: https
+    tlsConfig:
+      caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      insecureSkipVerify: true
+    metricRelabelings:
+      - action: drop
+        regex: container_(tasks_state|memory_failures_total|network_transmit_errors_total|network_receive_bytes_total)
+        replacement: $1
+        separator: ;
+        sourceLabels:
+        - __name__
+  jobLabel: k8s-app
+  namespaceSelector:
+    matchNames:
+    - kube-system
+  selector:
+    matchLabels:
+      k8s-app: kubelet

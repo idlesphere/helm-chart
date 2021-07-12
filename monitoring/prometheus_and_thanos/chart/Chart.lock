@@ -1,0 +1,12 @@
+dependencies:
+- name: prometheus-node-exporter
+  repository: https://prometheus-community.github.io/helm-charts
+  version: 1.12.0
+- name: kube-state-metrics
+  repository: https://charts.bitnami.com/bitnami
+  version: 1.0.0
+- name: thanos
+  repository: https://kubernetes-charts.banzaicloud.com
+  version: 0.4.0
+digest: sha256:106d464e0862f19e39c2f916556cfb00be84d7e655b037d5230cf5c0cee24247
+generated: "2021-02-25T18:19:22.681369+08:00"

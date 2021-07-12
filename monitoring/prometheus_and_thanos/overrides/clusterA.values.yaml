@@ -1,0 +1,37 @@
+prometheus:
+  version: "v2.22.2"
+  biz:
+    resources:
+      limits:
+        cpu: 2
+        memory: 10G
+      requests:
+        cpu: 1
+        memory: 10G
+    storageSize: "100G"
+    thanos:
+      resources:
+        limits:
+          cpu: 2
+          memory: 2G
+        requests:
+          cpu: 1
+          memory: 2G
+
+  infra:
+    resources:
+      limits:
+        cpu: 2
+        memory: 10G
+      requests:
+        cpu: 1
+        memory: 10G
+    storageSize: "100G"
+    thanos:
+      resources:
+        limits:
+          cpu: 2
+          memory: 2G
+        requests:
+          cpu: 1
+          memory: 2G

@@ -1,0 +1,41 @@
+---
+{{ if .Values.istio.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: thanos
+spec:
+  gateways:
+  - istio-system/admin-gateway
+  hosts:
+  - "monitoring-{{ .Values.datacenter }}.company.com"
+  http:
+  - match:
+    - uri:
+        prefix: /thanos/
+    route:
+    - destination:
+        host: prometheus-thanos-query-http
+        port:
+          number: 10902
+{{ end }}
+---
+{{ if .Values.istio.enabled }}
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: thanos-grpc
+spec:
+  gateways:
+  - istio-system/admin-gateway
+  hosts:
+  - "*"
+  tcp:
+  - match:
+    - port: 10901
+    route:
+    - destination:
+        host: prometheus-thanos-query-grpc
+        port:
+          number: 10901
+{{ end }}
