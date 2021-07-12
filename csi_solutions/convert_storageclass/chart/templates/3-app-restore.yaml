@@ -1,0 +1,40 @@
+{{- if (eq .Values.step "restore") -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.restore.name | default "jenkins" | quote }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.prepare.storageclass }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+  dataSource:
+    name: {{ if .Values.restore.snapshot }} {{ .Values.restore.snapshot }} {{- else -}} {{ .Release.Name }}-{{ now | date "20060102" }} {{ end }}
+    kind: VolumeSnapshot
+    apiGroup: snapshot.storage.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-restore
+spec:
+  template:
+    metadata:
+      name: {{ .Release.Name }}-restore
+    spec:
+      containers:
+      - name: app
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        command: [ "/bin/sh", "-c", "sleep 5s" ]
+        volumeMounts:
+        - name: data
+          mountPath: /data
+      restartPolicy: OnFailure
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ .Values.restore.name | default "jenkins" | quote }}
+{{- end -}}

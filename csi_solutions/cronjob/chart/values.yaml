@@ -1,0 +1,15 @@
+# Cronjob core values
+cronjob:
+  schedule: "0 1 * * *"
+
+  image: "xxx/cronsnapshot:latest"
+  imagePullPolicy: "Always"
+  imagePullSecretName: "jfrog-authenticate"
+
+env:
+  # persistentvolumeclaims name you want to backup
+  PVC_NAME: "jenkins"
+  # Retention
+  MAX_COUNT: "7"
+
+# uninstall: ""
