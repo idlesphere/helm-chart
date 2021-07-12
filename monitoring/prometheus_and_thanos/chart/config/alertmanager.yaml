@@ -1,0 +1,4 @@
+- scheme: https
+  static_configs:
+  - targets:
+    - alertmanager.company.com

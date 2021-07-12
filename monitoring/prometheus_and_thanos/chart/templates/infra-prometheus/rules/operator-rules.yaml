@@ -1,0 +1,12 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: infra-operator-rules
+  labels:
+    prometheus: infra-prometheus
+    chart: {{ .Chart.Name }}
+    version: {{ .Chart.Version }}
+    release: {{ .Release.Name }}
+spec:
+  {{ .Files.Get "rules/operator.rules.yml" }}

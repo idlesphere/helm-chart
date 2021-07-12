@@ -1,0 +1,23 @@
+name: prometheus
+version: 0.0.1
+description: This chart defines the main iherb prometheus stack.
+apiVersion: v2
+dependencies:
+# https://github.com/prometheus-community/helm-charts/blob/main/charts/prometheus-node-exporter/values.yaml
+  - name: prometheus-node-exporter
+    version: 1.12.0
+    repository: https://prometheus-community.github.io/helm-charts
+    import-values:
+      - prometheus-node-exporter
+# https://github.com/bitnami/charts/tree/master/bitnami/kube-state-metrics/#parameters
+  - name: kube-state-metrics
+    version: 1.0.0
+    repository: https://charts.bitnami.com/bitnami
+    import-values:
+      - kube-state-metrics
+# https://github.com/banzaicloud/banzai-charts/tree/master/thanos
+  - name: thanos
+    version: 0.4.0
+    repository: https://kubernetes-charts.banzaicloud.com
+    import-values:
+      - thanos

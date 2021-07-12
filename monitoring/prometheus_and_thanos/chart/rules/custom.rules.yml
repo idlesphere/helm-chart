@@ -1,0 +1,362 @@
+groups:
+  - name: kubernetes-resources
+    rules:
+    - alert: KubeCPUOvercommit
+      annotations:
+        message: Cluster has overcommitted CPU resource requests for Pods and cannot
+          tolerate node failure.
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubecpuovercommit
+      expr: |-
+        sum(namespace_name:kube_pod_container_resource_requests_cpu_cores:sum)
+          /
+        sum(node:node_num_cpu:sum)
+          >
+        (count(node:node_num_cpu:sum)-1) / count(node:node_num_cpu:sum)
+      for: 5m
+      labels:
+        namespace: kube-system
+        opsgenie_priority: P4
+        severity: warning
+    - alert: KubeMemOvercommit
+      annotations:
+        message: Cluster has overcommitted memory resource requests for Pods and
+          cannot tolerate node failure.
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubememovercommit
+      expr: |-
+        sum(namespace_name:kube_pod_container_resource_requests_memory_bytes:sum)
+          /
+        sum(node_memory_MemTotal_bytes)
+          >
+        (count(node:node_num_cpu:sum)-1)
+          /
+        count(node:node_num_cpu:sum)
+      for: 5m
+      labels:
+        namespace: kube-system
+        opsgenie_priority: P4
+        severity: warning
+    - alert: KubeCPUOvercommit
+      annotations:
+        message: Cluster has overcommitted CPU resource requests for Namespaces.
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubecpuovercommit
+      expr: |-
+        sum(kube_resourcequota{job="kube-state-metrics", type="hard", resource="cpu"})
+          /
+        sum(node:node_num_cpu:sum)
+          > 1.5
+      for: 5m
+      labels:
+        namespace: kube-system
+        severity: warning
+    - alert: KubeMemOvercommit
+      annotations:
+        message: Cluster has overcommitted memory resource requests for Namespaces.
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubememovercommit
+      expr: |-
+        sum(kube_resourcequota{job="kube-state-metrics", type="hard", resource="memory"})
+          /
+        sum(node_memory_MemTotal_bytes{job="node-exporter"})
+          > 1.5
+      for: 5m
+      labels:
+        namespace: kube-system
+        opsgenie_priority: P4
+        severity: warning
+    - alert: KubeQuotaExceeded
+      annotations:
+        message: Namespace {{ $labels.namespace }} is using {{ printf "%0.0f" $value
+          }}% of its {{ $labels.resource }} quota.
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubequotaexceeded
+      expr: |-
+        100 * kube_resourcequota{job="kube-state-metrics", type="used"}
+          / ignoring(instance, job, type)
+        (kube_resourcequota{job="kube-state-metrics", type="hard"} > 0)
+          > 90
+      for: 15m
+      labels:
+        namespace: '{{ $labels.namespace}}'
+        opsgenie_priority: P4
+        severity: warning
+    - alert: CPUThrottlingHigh
+      annotations:
+        message: '{{ printf "%0.0f" $value }}% throttling of CPU in namespace {{
+          $labels.namespace }} for container {{ $labels.container_name }} in pod
+          {{ $labels.pod_name }} for 30 mins.'
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-cputhrottlinghigh
+      expr: |-
+        100 * sum(increase(container_cpu_cfs_throttled_periods_total{container_name!="",container_name!="prometheus-to-sd",container_name!="prometheus-to-sd-new-model",container_name!="datadog-agent-v6",container_name!="datadog",container_name!="autoscaler",container_name!="heapster"}[5m])) by (container_name, pod_name, namespace)
+          /
+        sum(increase(container_cpu_cfs_periods_total[5m])) by (container_name, pod_name, namespace)
+          > 80
+      for: 30m
+      labels:
+        namespace: '{{ $labels.namespace}}'
+        opsgenie_priority: P5
+        severity: warning
+  - name: kubernetes-apps
+    rules:
+    - alert: KubePodCrashLooping
+      annotations:
+        message: Pod {{ $labels.namespace }}/{{ $labels.pod }} ({{ $labels.container
+          }}) is restarting {{ printf "%.2f" $value }} times / 5 minutes.
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubepodcrashlooping
+      expr: rate(kube_pod_container_status_restarts_total{job="kube-state-metrics"}[15m])
+        * 60 * 5 > 1.5
+      for: 1h
+      labels:
+        namespace: '{{ $labels.namespace}}'
+        opsgenie_priority: P4
+        severity: critical
+    - alert: KubePodNotReady
+      annotations:
+        message: Pod {{ $labels.namespace }}/{{ $labels.pod }} has been in a non-ready
+          state for longer than an hour.
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubepodnotready
+      expr: sum by (namespace, pod) (kube_pod_status_phase{job="kube-state-metrics",
+        phase=~"Pending|Unknown",namespace!="twistlock"}) > 0
+      for: 1h
+      labels:
+        opsgenie_priority: P4
+        severity: critical
+    - alert: KubeDeploymentGenerationMismatch
+      annotations:
+        message: Deployment generation for {{ $labels.namespace }}/{{ $labels.deployment
+          }} does not match, this indicates that the Deployment has failed but has
+          not been rolled back.
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubedeploymentgenerationmismatch
+      expr: |-
+        kube_deployment_status_observed_generation{job="kube-state-metrics"}
+          !=
+        kube_deployment_metadata_generation{job="kube-state-metrics"}
+      for: 15m
+      labels:
+        opsgenie_priority: P4
+        severity: critical
+    - alert: KubeDeploymentReplicasMismatch
+      annotations:
+        message: Deployment {{ $labels.namespace }}/{{ $labels.deployment }} has
+          not matched the expected number of replicas for longer than an hour.
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubedeploymentreplicasmismatch
+      expr: |-
+        kube_deployment_spec_replicas{job="kube-state-metrics"}
+          !=
+        kube_deployment_status_replicas_available{job="kube-state-metrics"}
+      for: 1h
+      labels:
+        opsgenie_priority: P4
+        severity: critical
+    - alert: KubeStatefulSetReplicasMismatch
+      annotations:
+        message: StatefulSet {{ $labels.namespace }}/{{ $labels.statefulset }} has
+          not matched the expected number of replicas for longer than 15 minutes.
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubestatefulsetreplicasmismatch
+      expr: |-
+        kube_statefulset_status_replicas_ready{job="kube-state-metrics"}
+          !=
+        kube_statefulset_status_replicas{job="kube-state-metrics"}
+      for: 15m
+      labels:
+        opsgenie_priority: P4
+        severity: critical
+    - alert: KubeStatefulSetGenerationMismatch
+      annotations:
+        message: StatefulSet generation for {{ $labels.namespace }}/{{ $labels.statefulset
+          }} does not match, this indicates that the StatefulSet has failed but
+          has not been rolled back.
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubestatefulsetgenerationmismatch
+      expr: |-
+        kube_statefulset_status_observed_generation{job="kube-state-metrics"}
+          !=
+        kube_statefulset_metadata_generation{job="kube-state-metrics"}
+      for: 15m
+      labels:
+        opsgenie_priority: P4
+        severity: critical
+    - alert: KubeStatefulSetUpdateNotRolledOut
+      annotations:
+        message: StatefulSet {{ $labels.namespace }}/{{ $labels.statefulset }} update
+          has not been rolled out.
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubestatefulsetupdatenotrolledout
+      expr: |-
+        max without (revision) (
+          kube_statefulset_status_current_revision{job="kube-state-metrics"}
+            unless
+          kube_statefulset_status_update_revision{job="kube-state-metrics"}
+        )
+          *
+        (
+          kube_statefulset_replicas{job="kube-state-metrics"}
+            !=
+          kube_statefulset_status_replicas_updated{job="kube-state-metrics"}
+        )
+      for: 15m
+      labels:
+        opsgenie_priority: P4
+        severity: critical
+    - alert: KubeDaemonSetRolloutStuck
+      annotations:
+        message: Only {{ $value }}% of the desired Pods of DaemonSet {{ $labels.namespace
+          }}/{{ $labels.daemonset }} are scheduled and ready.
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubedaemonsetrolloutstuck
+      expr: |-
+        kube_daemonset_status_number_ready{job="kube-state-metrics",daemonset!="twistlock-defender-ds",daemonset!="twistlock-defenders"}
+          /
+        kube_daemonset_status_desired_number_scheduled{job="kube-state-metrics"} * 100 < 100
+      for: 15m
+      labels:
+        opsgenie_priority: P4
+        severity: critical
+    - alert: KubeDaemonSetNotScheduled
+      annotations:
+        message: '{{ $value }} Pods of DaemonSet {{ $labels.namespace }}/{{ $labels.daemonset
+          }} are not scheduled.'
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubedaemonsetnotscheduled
+      expr: |-
+        kube_daemonset_status_desired_number_scheduled{job="kube-state-metrics"}
+          -
+        kube_daemonset_status_current_number_scheduled{job="kube-state-metrics"} > 0
+      for: 10m
+      labels:
+        opsgenie_priority: P4
+        severity: warning
+    - alert: KubeDaemonSetMisScheduled
+      annotations:
+        message: '{{ $value }} Pods of DaemonSet {{ $labels.namespace }}/{{ $labels.daemonset
+          }} are running where they are not supposed to run.'
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubedaemonsetmisscheduled
+      expr: kube_daemonset_status_number_misscheduled{job="kube-state-metrics"}
+        > 0
+      for: 10m
+      labels:
+        opsgenie_priority: P4
+        severity: warning
+    - alert: KubeCronJobRunning
+      annotations:
+        message: CronJob {{ $labels.namespace }}/{{ $labels.cronjob }} is taking
+          more than 1h to complete.
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubecronjobrunning
+      expr: time() - kube_cronjob_next_schedule_time{job="kube-state-metrics"} >
+        3600
+      for: 1h
+      labels:
+        opsgenie_priority: P4
+        severity: warning
+    - alert: KubeJobCompletion
+      annotations:
+        message: Job {{ $labels.namespace }}/{{ $labels.job_name }} is taking more
+          than one hour to complete.
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubejobcompletion
+      expr: kube_job_spec_completions{job="kube-state-metrics"} - kube_job_status_succeeded{job="kube-state-metrics"}  >
+        0
+      for: 1h
+      labels:
+        opsgenie_priority: P4
+        severity: warning
+    - alert: KubeJobFailed
+      annotations:
+        message: Job {{ $labels.namespace }}/{{ $labels.job_name }} failed to complete.
+        runbook_url: https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubejobfailed
+      expr: kube_job_status_failed{job="kube-state-metrics"}  > 0
+      for: 1h
+      labels:
+        opsgenie_priority: P4
+        severity: warning
+  - name: iherb-pod-rules
+    rules:
+    - alert: PodsNotReady
+      annotations:
+        dashboard_url: https://grafana.internal.iherb.io/d/6581e46e4e5c7ba40a07646395ef7b23/k8s-compute-resources-pod?orgId=1
+        message: Pod {{ $labels.namespace }}/{{ $labels.pod }} has been in a non-ready
+          state for longer than 10 minutes.
+        runbook_url: ""
+        summary: Pods Unready
+      expr: sum by(namespace, pod) (kube_pod_status_phase{job="kube-state-metrics",phase!="Running",phase!="Evicted",phase!="Succeeded",phase!="Completed",namespace!="twistlock"})
+        > 0
+      for: 10m
+      labels:
+        namespace: '{{ $labels.namespace}}'
+        opsgenie_priority: P4
+        severity: warning
+  - name: iherb-node-rules
+    rules:
+    - alert: NodeHighCPU
+      annotations:
+        dashboard_url: https://grafana.iherb.net/d/4ac4f123aae0ff6dbaf4f4f66120033b/kubernetes-use-method-node?orgId=1
+        message: '{{ $labels.node }} has high cpu. For last 10m'
+        runbook_url: ""
+        summary: Kubernetes Node High CPU
+      expr: node:node_cpu_utilisation:avg1m > 0.8
+      for: 10m
+      labels:
+        opsgenie_priority: P3
+        severity: warning
+        test: "true"
+    - alert: NodeHighMemory
+      annotations:
+        dashboard_url: https://grafana.iherb.net/d/4ac4f123aae0ff6dbaf4f4f66120033b/kubernetes-use-method-node?orgId=1
+        message: '{{ $labels.node }} has high memory. {{ printf "%.2f" $value }}%
+          For last 15m'
+        runbook_url: ""
+        summary: Kubernetes Node High Memory
+      expr: '100 * node:node_memory_utilisation: > 90'
+      for: 15m
+      labels:
+        noc: "true"
+        opsgenie_priority: P3
+        severity: warning
+    - alert: iHerbKubeNodeNotReady
+      annotations:
+        dashboard_url: https://grafana.iherb.net/d/4ac4f123aae0ff6dbaf4f4f66120033b/kubernetes-use-method-node?orgId=1
+        message: '{{ $labels.node }} has been unready for more than an 1 minute.'
+        runbook_url: ""
+        summary: Node is not ready
+      expr: kube_node_status_condition{condition="Ready",job="kube-state-metrics",status="true"}
+        == 0
+      for: 1m
+      labels:
+        noc: "true"
+        opsgenie_priority: P1
+        severity: critical
+        test: "true"
+    - alert: LowSpacePVC
+      annotations:
+        dashboard_url: ""
+        description: PVC is near capacity
+        message: 'PVC: {{ $labels.persistentvolumeclaim }} in namespace: {{ $labels.namespace
+          }} is at least 80% full'
+        runbook_url: ""
+      expr: kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes
+        > 0.8
+      for: 1m
+      labels:
+        opsgenie_priority: P1
+        severity: critical
+        test: "true"
+    - alert: NodeLowDiskSpace
+      annotations:
+        dashboard_url: https://grafana.internal.iherb.io/d/95hT1xCmk/node-exporter-full?orgId=1
+        description: Node has low disk space
+        message: 'Node: {{ $labels.instance }} root volume is at least 80% Full'
+        runbook_url: ""
+      expr: 1 - (node_filesystem_free_bytes / node_filesystem_size_bytes) > 0.8
+      for: 1m
+      labels:
+        opsgenie_priority: P1
+        severity: critical
+        test: "true"
+  - name: general-rules
+    rules:
+    - alert: TargetDown
+      annotations:
+        description: Metrics API Target Down,Prometheus can not grub metric data
+          from your pods'
+        message: '{{ $value }}% of the {{ $labels.job }} targets in {{ $labels.namespace
+          }} namespace are down.'
+      expr: 100 * (count(up == 0) BY (job, namespace) / count(up) BY (job, namespace))
+        > 10
+      for: 10m
+      labels:
+        namespace: '{{ $labels.namespace}}'
+        opsgenie_priority: P4
+        severity: warning
+  

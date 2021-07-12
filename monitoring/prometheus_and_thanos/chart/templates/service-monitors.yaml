@@ -1,0 +1,12 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: prometheus-operator
+  labels:
+    prometheus: infra-prometheus
+spec:
+  endpoints:
+    - port: http
+  selector:
+    matchLabels:
+      app: prometheus-operator-operator
