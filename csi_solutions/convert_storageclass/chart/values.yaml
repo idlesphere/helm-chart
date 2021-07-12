@@ -1,0 +1,23 @@
+# prepare|mount|snapshot|restore
+step: "prepare"
+
+restore:
+  name: "jenkins"
+  # snapshot:
+
+persistence:
+  size: "500Gi"
+
+  # GCP
+  csidriver: "pd.csi.storage.gke.io"
+  disk: "projects/`$PROJECT`/zones/`$ZONE`/disks/`diskname`"
+
+
+# Prepare Stage.
+# Create VolumeSnapshotClass and storageClass.
+# Don't need to change, default value is "csi-ssd"
+prepare:
+  # volumesnapshotclass: "csi-ssd"
+  volumesnapshotclass: "csi-ssd"
+  # CSI supported storageclass
+  storageclass: "premium-rwo"

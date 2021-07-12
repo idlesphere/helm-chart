@@ -1,0 +1,54 @@
+{{- if (eq .Values.step "mount") -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-clone
+spec:
+  storageClassName: {{ .Values.prepare.storageclass }}
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }} 
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-{{ .Release.Name }}-clone
+spec:
+  storageClassName: {{ .Values.prepare.storageclass }}
+  capacity:
+    storage: {{ .Values.persistence.size }} 
+  accessModes:
+    - ReadWriteOnce
+  claimRef:
+    namespace: {{ .Release.Namespace }}
+    name: {{ .Release.Name }}-clone
+  csi:
+    driver: {{ .Values.persistence.csidriver}}
+    fsType: ext4
+    volumeHandle: {{ .Values.persistence.disk }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-mount
+spec:
+  template:
+    metadata:
+      name: {{ .Release.Name }}-mount
+    spec:
+      containers:
+      - name: app
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        command: [ "/bin/sh", "-c", "sleep 5s" ]
+        volumeMounts:
+        - name: data
+          mountPath: /data
+      restartPolicy: OnFailure
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-clone
+{{- end -}}
